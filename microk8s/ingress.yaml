@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: weight-tracker-ingress
+spec:
+  rules:
+    - host: weight-tracker.application.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: weight-tracker-service
+                port:
+                  number: 80

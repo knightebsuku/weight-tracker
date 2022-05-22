@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weight-tracker-deployment
+  labels:
+    apps: weight-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weight-tracker
+  template:
+    metadata:
+      labels:
+        app: weight-tracker
+    spec:
+      containers:
+        - name: weight-tracker
+          image: localhost:32000/weight-tracker:registry
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE
+              value: postgresql://weight:weight@storage.lan:5432/weight
+          command: ["./weight-tracker"]
