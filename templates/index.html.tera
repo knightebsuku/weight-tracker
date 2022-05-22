@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="static/bulma.min.css"/>
+    <link rel="stylesheet" type="text/css" href="static/bulma-calendar.min.css"/>
+    <script src="static/bulma-calendar.min.js"></script>
+    <script src="static/plotly.js"></script>
+
+</head>
+<body>
+    <div class="container">
+        <div class="columns is-centered">
+            <div class="column is-half">
+                <h1 class="title">Weight Tracker</h1>
+                <div class="notification is-info">
+                    <p>Current Weight : {{current}} Kg</p>
+                </div>
+
+                <form method="post" action="/">
+                    <div class="field">
+                        <label class="label">Weight (kg)</label>
+                        <div class="control">
+
+                            <input class="input" type="text" name="weight" required>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="label">Date</label>
+                        <div class="control">
+                            <input id="date" class="input" type="date" name="date" required>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <div class="control">
+                            <button class="button is-link is-fullwidth">Submit</button>
+                        </div>
+                    </div>
+                </form>
+                {% if message %}
+                    {% if message.status == "error" %}
+                        <div class="notification is-danger">
+                            <p>{{message.message}}</p>
+                        </div>
+                    {% elif message.status == "success" %}
+                        <div class="notification is-success">
+                        <p>{{message.message}}</p>
+                    </div>
+                    {% endif %}
+                {% endif %}
+
+            </div>
+        </div>
+        {% if weight %}
+            <div id=plotDiv class="columns"></div>
+        {% endif %}
+    </div>
+<script>
+    var calendars = new bulmaCalendar('#date', {
+        dateFormat: 'yyyy-MM-dd'
+        });
+    {% if weight %}
+        data = {{weight | json_encode() | safe}};
+        var x = [];
+        var y = [];
+        for (key in data){
+            x.push(data[key].date);
+            y.push(data[key].kg);
+        }
+        plot_data = [{x: x, y: y, mode: 'markers', type: 'scatter'}];
+        Plotly.newPlot('plotDiv', plot_data);
+    {% endif %}
+
+</script>
+</body>
+</html>
