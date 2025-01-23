@@ -1,20 +1,20 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-
 mod database;
 mod form;
 
-#[macro_use] extern crate rocket;
-
-use rocket_contrib::templates::Template;
-use rocket_contrib::serve::StaticFiles;
-use serde::Serialize;
-use chrono::NaiveDate;
-use rocket::request::{FlashMessage, Form};
+use rocket_dyn_templates::Template;
+use rocket::fs::FileServer;
+use rocket::form::Form;
+use rocket::request::FlashMessage;
 use rocket::response::{Redirect, Flash};
+use serde::Serialize;
+use rocket::{get, post, launch};
+use chrono;
+
+//#[macro_use] extern crate rocket;
 
 #[derive(Serialize)]
 struct Weight{
-    date: NaiveDate,
+    date: chrono::NaiveDate,
     kg: f32
 }
 
@@ -44,7 +44,9 @@ fn index(flash: Option<FlashMessage>) -> Template{
         })
     }
     let current_weight = values[0].kg;
-    let message: Option<TemplateMessage> = flash.map(|msg| TemplateMessage{status: msg.name().to_string(), message: msg.msg().to_string()});
+    let message: Option<TemplateMessage> = flash.map(
+        |flash| TemplateMessage{status: flash.kind().to_string(), message: flash.message().to_string()}
+    );
     let context = TemplateData{
         weight: values,
         current: current_weight,
@@ -56,11 +58,13 @@ fn index(flash: Option<FlashMessage>) -> Template{
 
 #[post("/", data="<weight_form>")]
 fn submit(weight_form: Form<form::WeightForm>) -> Flash<Redirect>{
+    let f = weight_form.value();
+
     if let Err(e) = weight_form.date{
         return Flash::error(Redirect::to("/"), e);
     }
     let form = weight_form.into_inner();
-    let date = form.date.unwrap();
+    let date = form.date;
     let kg = form.weight;
     let mut client = database::get_client().unwrap();
     client
@@ -69,10 +73,12 @@ fn submit(weight_form: Form<form::WeightForm>) -> Flash<Redirect>{
     Flash::success(Redirect::to("/"), "Weight Added")
 
 }
-fn main() {
-    rocket::ignite()
+
+#[launch]
+fn rocket() -> _ {
+    rocket::build()
         .attach(Template::fairing())
         .mount("/", routes![index, submit])
-        .mount("/static", StaticFiles::from("static"))
-        .launch();
+        .mount("/static", FileServer::from("static"))
+        .launch()
 }

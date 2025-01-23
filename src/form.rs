@@ -1,34 +1,31 @@
-use chrono::{Local, NaiveDate};
-use rocket::request::FromFormValue;
-use rocket::http::RawStr;
+use rocket::form::{FromForm, Result, Error};
+use time::{self, format_description::well_known::Iso8601};
 
 
-pub struct WeightDate(NaiveDate);
-
-impl WeightDate{
-    pub fn as_str(&self) -> NaiveDate{
-        self.0
+fn date_validate<'v>(date: &time::Date) -> Result<'v, ()>{
+    if *date > time::OffsetDateTime::now_utc().date(){
+        return Err(Error::validation("Date cannot be in the future"))?;
+    }else{
+        Ok(())
     }
-}
-impl<'v> FromFormValue<'v> for WeightDate {
-    type Error = &'static str;
+    // let _ = match time::PrimitiveDateTime::parse(date, &Iso8601::DATE){
+    //     Ok(d) => {
+    //         if d.date() > time::OffsetDateTime::now_utc().date(){
+    //             return Err(Error::validation("Date cannot be in the future"))?;
+    //         }
+    //         Ok(())
+    //     },
+    //     Err(_) => Err(Error::validation("Invalid date format"))
+    // };
+    // Ok(())
 
-    fn from_form_value(date: &'v RawStr) -> Result<Self, Self::Error>{
-        let dt = NaiveDate::parse_from_str(date, "%Y-%m-%d");
-        match dt {
-            Ok(d) => {
-                if d > Local::now().naive_local().date() {
-                    return Err("Date cannot be in the future");
-                }
-                Ok(WeightDate(d))
-            }
-            Err(_e) => Err("Invalid Date Format"),
-        }
-    }
+
 }
 
 #[derive(FromForm)]
 pub struct WeightForm {
     pub weight: f32,
-    pub date: Result<WeightDate, &'static str>,
+    #[field(validate = date_validate())]
+    pub date: time::Date
 }
+
