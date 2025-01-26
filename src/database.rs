@@ -14,7 +14,6 @@ fn serialize_date<S>(date: &time::Date, serializer: S) -> Result<S::Ok, S::Error
 where
     S: Serializer,
 {
-    // Convert the date to a string in the desired format
     let date_string = date.to_string();
     serializer.serialize_str(&date_string)
 }

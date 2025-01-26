@@ -73,3 +73,4 @@ fn rocket() -> _ {
         .mount("/", routes![index, submit])
         .mount("/static", FileServer::from("static"))
 }
+
