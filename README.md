@@ -1,2 +1,4 @@
-# weight-tracker
-Web application to keep track of your weight
+# Weight Tracker
+
+Simple Web Application Using the rust [rocket web framework](https://rocket.rs/)
+

@@ -1,22 +1,16 @@
 mod database;
 mod form;
 
-use rocket_dyn_templates::Template;
+use database::get_weights;
+use rocket_dyn_templates::{Template, context};
 use rocket::fs::FileServer;
-use rocket::form::Form;
+use rocket::form::{Form, Contextual};
 use rocket::request::FlashMessage;
 use rocket::response::{Redirect, Flash};
 use serde::Serialize;
-use rocket::{get, post, launch};
-use chrono;
+use rocket::{get, post, launch, routes};
+use rocket_db_pools::{Database, Connection};
 
-//#[macro_use] extern crate rocket;
-
-#[derive(Serialize)]
-struct Weight{
-    date: chrono::NaiveDate,
-    kg: f32
-}
 
 #[derive(Serialize)]
 struct TemplateMessage{
@@ -25,30 +19,29 @@ struct TemplateMessage{
 }
 #[derive(Serialize)]
 struct TemplateData{
-    weight: Vec<Weight>,
+    weight: Vec<database::Weight>,
     current: f32,
     message: Option<TemplateMessage>
 }
 
 #[get("/")]
-fn index(flash: Option<FlashMessage>) -> Template{
-    let mut values = Vec::new();
-    let mut client = database::get_client().unwrap();
-    for row in client
-        .query("SELECT kg, date from weight order by id desc", &[])
-        .unwrap()
-    {
-        values.push(Weight {
-            kg: row.get(0),
-            date: row.get(1),
-        })
+async fn index(db: Connection<database::WeighDB>, flash: Option<FlashMessage<'_>>) -> Template{
+    let weights = match get_weights(db).await{
+        Ok(w) => w,
+        Err(err) => {
+            return Template::render("errors", context!(error: err.to_string()));
+        }
+    };
+    let mut current_weight: f32 = 0.0;
+    if weights.len() > 0{
+        current_weight = weights[0].kg;    
     }
-    let current_weight = values[0].kg;
+    
     let message: Option<TemplateMessage> = flash.map(
         |flash| TemplateMessage{status: flash.kind().to_string(), message: flash.message().to_string()}
     );
     let context = TemplateData{
-        weight: values,
+        weight: weights,
         current: current_weight,
         message: message
     };
@@ -56,21 +49,19 @@ fn index(flash: Option<FlashMessage>) -> Template{
 
 }
 
-#[post("/", data="<weight_form>")]
-fn submit(weight_form: Form<form::WeightForm>) -> Flash<Redirect>{
-    let f = weight_form.value();
+#[post("/", data="<form>")]
+async fn submit<'r>(db: Connection<database::WeighDB>, form: Form<Contextual<'r, form::WeightForm>>) -> Flash<Redirect>{
+    if let Some(ref valid_form) = form.value{
+        let date = valid_form.date;
+        let kg = valid_form.weight;
+        match database::create_weight(db, date, kg).await{
+            Ok(_) => Flash::success(Redirect::to("/"), "Weight Added"),
+            Err(_) => Flash::success(Redirect::to("/"), "Unable to insert weight")
+        }
+    }else{
+        Flash::error(Redirect::to("/"), "Invalid form data")
 
-    if let Err(e) = weight_form.date{
-        return Flash::error(Redirect::to("/"), e);
     }
-    let form = weight_form.into_inner();
-    let date = form.date;
-    let kg = form.weight;
-    let mut client = database::get_client().unwrap();
-    client
-        .execute("INSERT INTO weight(date, kg) VALUES($1,$2)", &[&date.as_str(), &kg])
-        .unwrap();
-    Flash::success(Redirect::to("/"), "Weight Added")
 
 }
 
@@ -78,7 +69,7 @@ fn submit(weight_form: Form<form::WeightForm>) -> Flash<Redirect>{
 fn rocket() -> _ {
     rocket::build()
         .attach(Template::fairing())
+        .attach(database::WeighDB::init())
         .mount("/", routes![index, submit])
         .mount("/static", FileServer::from("static"))
-        .launch()
 }

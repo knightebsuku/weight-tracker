@@ -14,12 +14,23 @@ spec:
       labels:
         app: weight-tracker
     spec:
+      volumes:
+        - name: config
+          configMap:
+            name: weight-tracker-config
+            items:
+              - key: "Rocket.toml"
+                path: "Rocket.toml"
       containers:
         - name: weight-tracker
-          image: localhost:32000/weight-tracker:registry
+          image: 10.42.0.101:32000/weight-tracker:latest
           ports:
             - containerPort: 8000
           env:
-            - name: DATABASE
-              value: postgresql://weight:weight@storage.lan:5432/weight
+            - name: ROCKET_CONFIG
+              value: /app/data/Rocket.toml
+          volumeMounts:
+            - name: config
+              mountPath: /app/data
+              readOnly: true
           command: ["./weight-tracker"]

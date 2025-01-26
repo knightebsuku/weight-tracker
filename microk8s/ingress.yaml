@@ -4,7 +4,7 @@ metadata:
   name: weight-tracker-ingress
 spec:
   rules:
-    - host: weight-tracker.application.lan
+    - host: weight-tracker.application.local
       http:
         paths:
           - path: /
